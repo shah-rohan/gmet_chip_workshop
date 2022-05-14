@@ -1,0 +1,53 @@
+module load bowtie2
+module load samtools
+module load bedtools
+
+mkdir REFERENCE_GENOME
+cat /project2/workshop-gmet32/REFERENCE_GENOME/chr14.fa /project2/workshop-gmet32/REFERENCE_GENOME/bar_Ca_1-17.fa > REFERENCE_GENOME/hg38_chr14_bar_Ca_1-17.fa
+
+mkdir BOWTIE2_INDEX
+bowtie2-build REFERENCE_GENOME/hg38_chr14_bar_Ca_1-17.fa BOWTIE2_INDEX/hg38_chr14_bar_Ca_1-17
+samtools faidx REFERENCE_GENOME/hg38_chr14_bar_Ca_1-17.fa
+awk '{print $1"\t"$2}' REFERENCE_GENOME/hg38_chr14_bar_Ca_1-17.fa.fai > REFERENCE_GENOME/hg38_chr14_bar_Ca_1-17.len
+
+mkdir ALIGNED_READS
+bowtie2 -p 16 -x BOWTIE2_INDEX/hg38_chr14_bar_Ca_1-17 -1 /project2/workshop-gmet32/FASTQ/AR16-1-Input_S1_R1_appended_chr14_cals.fastq -2 /project2/workshop-gmet32/FASTQ/AR16-1-Input_S1_R2_appended_chr14_cals.fastq -I 0 -X 700 --end-to-end --sensitive -S ALIGNED_READS/AR16-1-Input_chr14_cals.sam &
+bowtie2 -p 16 -x BOWTIE2_INDEX/hg38_chr14_bar_Ca_1-17 -1 /project2/workshop-gmet32/FASTQ/AR16-4-TF-PA5-40086_S1_R1_001_chr14_cals.fastq -2 /project2/workshop-gmet32/FASTQ/AR16-4-TF-PA5-40086_S1_R2_001_chr14_cals.fastq -I 0 -X 700 --end-to-end --sensitive -S ALIGNED_READS/AR16-4-TF-PA5-40086_chr14_cals.sam &
+bowtie2 -p 16 -x BOWTIE2_INDEX/hg38_chr14_bar_Ca_1-17 -1 /project2/workshop-gmet32/FASTQ/AR16-5-CST-5326BF_S1_R1_001_chr14_cals.fastq -2 /project2/workshop-gmet32/FASTQ/AR16-5-CST-5326BF_S1_R2_001_chr14_cals.fastq -I 0 -X 700 --end-to-end --sensitive -S ALIGNED_READS/AR16-5-CST-5326BF_chr14_cals.sam &
+bowtie2 -p 16 -x BOWTIE2_INDEX/hg38_chr14_bar_Ca_1-17 -1 /project2/workshop-gmet32/FASTQ/AR16-5-TF-710796_S3_R1_001_chr14_cals.fastq -2 /project2/workshop-gmet32/FASTQ/AR16-5-TF-710796_S3_R2_001_chr14_cals.fastq -I 0 -X 700 --end-to-end --sensitive -S ALIGNED_READS/AR16-5-TF-710796_chr14_cals.sam &
+
+mkdir BED_FILES
+awk -v MAQ=20 -v L=200 '$5>=MAQ && $9<=L && $2==99 || $5>=MAQ && $9<=L && $2==163 {print $3"\t"$4"\t"$4+$9-1}' ALIGNED_READS/AR16-1-Input_chr14_cals.sam | awk '$2<=$3{print $1"\t"$2"\t"$3}' | sort -k1,1 -k2,2n > BED_FILES/AR16-1-Input_chr14_cals.bed &
+awk -v MAQ=20 -v L=200 '$5>=MAQ && $9<=L && $2==99 || $5>=MAQ && $9<=L && $2==163 {print $3"\t"$4"\t"$4+$9-1}' ALIGNED_READS/AR16-4-TF-PA5-40086_chr14_cals.sam | awk '$2<=$3{print $1"\t"$2"\t"$3}' | sort -k1,1 -k2,2n > BED_FILES/AR16-4-TF-PA5-40086_chr14_cals.bed &
+awk -v MAQ=20 -v L=200 '$5>=MAQ && $9<=L && $2==99 || $5>=MAQ && $9<=L && $2==163 {print $3"\t"$4"\t"$4+$9-1}' ALIGNED_READS/AR16-5-CST-5326BF_chr14_cals.sam | awk '$2<=$3{print $1"\t"$2"\t"$3}' | sort -k1,1 -k2,2n > BED_FILES/AR16-5-CST-5326BF_chr14_cals.bed &
+awk -v MAQ=20 -v L=200 '$5>=MAQ && $9<=L && $2==99 || $5>=MAQ && $9<=L && $2==163 {print $3"\t"$4"\t"$4+$9-1}' ALIGNED_READS/AR16-5-TF-710796_chr14_cals.sam | awk '$2<=$3{print $1"\t"$2"\t"$3}' | sort -k1,1 -k2,2n > BED_FILES/AR16-5-TF-710796_chr14_cals.bed &
+
+mkdir GENOME_COV
+bedtools genomecov -i BED_FILES/AR16-1-Input_chr14_cals.bed -g REFERENCE_GENOME/hg38_chr14_bar_Ca_1-17.len -bga > GENOME_COV/AR16-1-Input_chr14_cals_genome_coverage.bedgraph &
+bedtools genomecov -i BED_FILES/AR16-4-TF-PA5-40086_chr14_cals.bed -g REFERENCE_GENOME/hg38_chr14_bar_Ca_1-17.len -bga > GENOME_COV/AR16-4-TF-PA5-40086_chr14_cals_genome_coverage.bedgraph &
+bedtools genomecov -i BED_FILES/AR16-5-CST-5326BF_chr14_cals.bed -g REFERENCE_GENOME/hg38_chr14_bar_Ca_1-17.len -bga > GENOME_COV/AR16-5-CST-5326BF_chr14_cals_genome_coverage.bedgraph &
+bedtools genomecov -i BED_FILES/AR16-5-TF-710796_chr14_cals.bed -g REFERENCE_GENOME/hg38_chr14_bar_Ca_1-17.len -bga > GENOME_COV/AR16-5-TF-710796_chr14_cals_genome_coverage.bedgraph &
+
+mkdir CAL_FILES
+awk '{print $1}' BED_FILES/AR16-1-Input_chr14_cals.bed | uniq -c | awk 'NR==FNR{a[$1]=$2; next} ($2 in a){b[a[$2]]+=$1} END {for (i in b){print i"\t"b[i]}}' /project2/workshop-gmet32/AR16_Calibration_Table.tab - | sort -k1,1 > CAL_FILES/AR16-1-Input_chr14_cals.cal &
+awk '{print $1}' BED_FILES/AR16-4-TF-PA5-40086_chr14_cals.bed | uniq -c | awk 'NR==FNR{a[$1]=$2; next} ($2 in a){b[a[$2]]+=$1} END {for (i in b){print i"\t"b[i]}}' /project2/workshop-gmet32/AR16_Calibration_Table.tab - | sort -k1,1 > CAL_FILES/AR16-4-TF-PA5-40086_chr14_cals.cal &
+awk '{print $1}' BED_FILES/AR16-5-CST-5326BF_chr14_cals.bed | uniq -c | awk 'NR==FNR{a[$1]=$2; next} ($2 in a){b[a[$2]]+=$1} END {for (i in b){print i"\t"b[i]}}' /project2/workshop-gmet32/AR16_Calibration_Table.tab - | sort -k1,1 > CAL_FILES/AR16-5-CST-5326BF_chr14_cals.cal &
+awk '{print $1}' BED_FILES/AR16-5-TF-710796_chr14_cals.bed | uniq -c | awk 'NR==FNR{a[$1]=$2; next} ($2 in a){b[a[$2]]+=$1} END {for (i in b){print i"\t"b[i]}}' /project2/workshop-gmet32/AR16_Calibration_Table.tab - | sort -k1,1 > CAL_FILES/AR16-5-TF-710796_chr14_cals.cal &
+
+mkdir HMD_BEDGRAPHS
+bedtools unionbedg -i GENOME_COV/AR16-4-TF-PA5-40086_chr14_cals_genome_coverage.bedgraph GENOME_COV/AR16-1-Input_chr14_cals_genome_coverage.bedgraph | awk -v cal=CAL_NUM 'NR>1 && $5>0{print $1"\t"$2"\t"$3"\t"(($4/$5)/cal)*100}' | awk '!/nan/ && !/inf/ {printf "%s\t%.0f\t%.0f\t%.1f\n",$1,$2,$3,$4}' | sort -k1,1 -k2,2n -k3,3n > HMD_BEDGRAPHS/AR16-4-TF-PA5-40086_chr14_cals_H3K4me3_HMD.bedgraph &
+bedtools unionbedg -i GENOME_COV/AR16-5-CST-5326BF_chr14_cals_genome_coverage.bedgraph GENOME_COV/AR16-1-Input_chr14_cals_genome_coverage.bedgraph | awk -v cal=CAL_NUM 'NR>1 && $5>0{print $1"\t"$2"\t"$3"\t"(($4/$5)/cal)*100}' | awk '!/nan/ && !/inf/ {printf "%s\t%.0f\t%.0f\t%.1f\n",$1,$2,$3,$4}' | sort -k1,1 -k2,2n -k3,3n > HMD_BEDGRAPHS/AR16-5-CST-5326BF_chr14_cals_H3K4me1_HMD.bedgraph &
+bedtools unionbedg -i GENOME_COV/AR16-5-TF-710796_chr14_cals_genome_coverage.bedgraph GENOME_COV/AR16-1-Input_chr14_cals_genome_coverage.bedgraph | awk -v cal=CAL_NUM 'NR>1 && $5>0{print $1"\t"$2"\t"$3"\t"(($4/$5)/cal)*100}' | awk '!/nan/ && !/inf/ {printf "%s\t%.0f\t%.0f\t%.1f\n",$1,$2,$3,$4}' | sort -k1,1 -k2,2n -k3,3n > HMD_BEDGRAPHS/AR16-5-TF-710796_chr14_cals_H3K4me2_HMD.bedgraph &
+
+module load python
+source activate /project2/workshop-gmet32/chip-seq-tools/
+
+mkdir PEAKS
+macs2 callpeak -t ALIGNED_READS/AR16-4-TF-PA5-40086_chr14_cals.sam -c ALIGNED_READS/AR16-1-Input_chr14_cals.sam -f SAM -g 1.0e+8 --outdir PEAKS -n AR16-4-TF-PA5-40086_chr14_cals_peaks
+macs2 callpeak -t ALIGNED_READS/AR16-5-CST-5326BF_chr14_cals.sam -c ALIGNED_READS/AR16-1-Input_chr14_cals.sam -f SAM -g 1.0e+8 --outdir PEAKS -n AR16-5-CST-5326BF_chr14_cals_peaks
+macs2 callpeak -t ALIGNED_READS/AR16-5-TF-710796_chr14_cals.sam -c ALIGNED_READS/AR16-1-Input_chr14_cals.sam -f SAM -g 1.0e+8 --outdir PEAKS -n AR16-5-TF-710796_chr14_cals_peaks
+
+mkdir METAGENES
+/project2/workshop-gmet32/chip-seq-tools/share/homer/bin/annotatePeaks.pl tss hg38 -hist 50 -size 6000 -ghist -bedGraph HMD_BEDGRAPHS/AR16-4-TF-PA5-40086_chr14_cals_H3K4me3_HMD.bedgraph > METAGENES/AR16-4-TF-PA5-40086_chr14_cals_H3K4me3_HMD.tss50.ghist
+/project2/workshop-gmet32/chip-seq-tools/share/homer/bin/annotatePeaks.pl tss hg38 -hist 50 -size 6000 -ghist -bedGraph HMD_BEDGRAPHS/AR16-5-CST-5326BF_chr14_cals_H3K4me1_HMD.bedgraph > METAGENES/AR16-5-CST-5326BF_chr14_cals_H3K4me1_HMD.tss50.ghist
+/project2/workshop-gmet32/chip-seq-tools/share/homer/bin/annotatePeaks.pl tss hg38 -hist 50 -size 6000 -ghist -bedGraph HMD_BEDGRAPHS/AR16-5-TF-710796_chr14_cals_H3K4me2_HMD.bedgraph > METAGENES/AR16-5-TF-710796_chr14_cals_H3K4me2_HMD.tss50.ghist
