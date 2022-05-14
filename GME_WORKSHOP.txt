@@ -1,3 +1,4 @@
+sinteractive --account=workshop-gmet32 --cpus-per-task=16 --ntasks=4
 module load bowtie2
 module load samtools
 module load bedtools
